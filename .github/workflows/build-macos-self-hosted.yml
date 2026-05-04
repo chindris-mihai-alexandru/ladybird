@@ -1,0 +1,78 @@
+name: Build macOS (Self-Hosted)
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+  schedule:
+    # Weekly sync build every Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_MAXSIZE: 5G
+
+jobs:
+  build:
+    name: macOS ARM64 (M1 Max)
+    runs-on: [self-hosted, macOS, ARM64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Sync with upstream
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          git remote add upstream https://github.com/LadybirdBrowser/ladybird.git 2>/dev/null || true
+          git fetch upstream master
+          git merge upstream/master --no-edit
+          git push origin master
+
+      - name: Install dependencies
+        run: |
+          brew install autoconf autoconf-archive automake ccache cmake nasm ninja pkg-config 2>/dev/null || true
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-macos-arm64-${{ github.sha }}
+          restore-keys: |
+            ccache-macos-arm64-
+
+      - name: Build Ladybird
+        run: |
+          export PATH="/opt/homebrew/opt/ccache/libexec:$PATH"
+          ./Meta/ladybird.py build
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: 10
+
+      - name: Sign app bundle
+        run: |
+          codesign --force --deep --sign - Build/release/bin/Ladybird.app
+
+      - name: Install to /Applications
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        run: |
+          rm -rf /Applications/Ladybird.app
+          cp -R Build/release/bin/Ladybird.app /Applications/Ladybird.app
+          echo "✅ Installed Ladybird.app to /Applications"
+
+      - name: Upload app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ladybird-macOS-arm64
+          path: Build/release/bin/Ladybird.app
+          retention-days: 14
+
+      - name: Print ccache stats
+        run: ccache --show-stats
