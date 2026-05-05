@@ -60,7 +60,7 @@ jobs:
       - name: Build Ladybird
         run: |
           export PATH="/opt/homebrew/opt/ccache/libexec:$PATH"
-          ./Meta/ladybird.py build
+          caffeinate -dims ./Meta/ladybird.py build
         env:
           CMAKE_BUILD_PARALLEL_LEVEL: 8
           VCPKG_MAX_CONCURRENCY: 4
