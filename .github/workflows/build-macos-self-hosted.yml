@@ -37,6 +37,14 @@ jobs:
           git merge upstream/master --no-edit
           git push origin master
 
+      - name: Wait for network
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf --max-time 5 https://github.com > /dev/null && break
+            echo "Waiting for network... ($i/30)"
+            sleep 5
+          done
+
       - name: Install dependencies
         run: |
           brew install autoconf autoconf-archive automake ccache cmake nasm ninja pkg-config 2>/dev/null || true
