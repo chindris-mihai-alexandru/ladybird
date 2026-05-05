@@ -72,20 +72,20 @@ jobs:
 
       - name: Sign app bundle
         run: |
-          codesign --force --deep --sign - install-staging/bin/Ladybird.app
+          codesign --force --deep --sign - install-staging/bundle/Ladybird.app
 
       - name: Deploy to /Applications
         if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         run: |
           rm -rf /Applications/Ladybird.app
-          cp -R install-staging/bin/Ladybird.app /Applications/Ladybird.app
+          cp -R install-staging/bundle/Ladybird.app /Applications/Ladybird.app
           echo "✅ Installed Ladybird.app to /Applications"
 
       - name: Upload app bundle
         uses: actions/upload-artifact@v7
         with:
           name: Ladybird-macOS-arm64
-          path: install-staging/bin/Ladybird.app
+          path: install-staging/bundle/Ladybird.app
           retention-days: 14
 
       - name: Print ccache stats
