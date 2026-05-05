@@ -62,7 +62,9 @@ jobs:
           export PATH="/opt/homebrew/opt/ccache/libexec:$PATH"
           ./Meta/ladybird.py build
         env:
-          CMAKE_BUILD_PARALLEL_LEVEL: 10
+          CMAKE_BUILD_PARALLEL_LEVEL: 8
+          VCPKG_MAX_CONCURRENCY: 4
+          MAKEFLAGS: -j4
 
       - name: Sign app bundle
         run: |
