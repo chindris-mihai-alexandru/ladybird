@@ -70,6 +70,26 @@ jobs:
         run: |
           cmake --install Build/release --prefix install-staging
 
+      - name: Bundle vcpkg dependencies
+        run: |
+          APP_LIB="install-staging/bundle/Ladybird.app/Contents/lib"
+          VCPKG_LIB="Build/release/vcpkg_installed/arm64-osx-dynamic/lib"
+
+          # Copy all versioned vcpkg dylibs (skip symlinks, copy real files only)
+          find "$VCPKG_LIB" -maxdepth 1 -name '*.dylib' ! -type l -exec cp {} "$APP_LIB/" \;
+
+          # Fix rpaths: change vcpkg absolute paths to @loader_path in all bundled libs
+          for lib in "$APP_LIB"/*.dylib; do
+            # Update install name to @rpath-relative
+            install_name_tool -id "@rpath/$(basename "$lib")" "$lib" 2>/dev/null || true
+            # Replace any reference to vcpkg lib dir with @loader_path
+            otool -L "$lib" | grep "$VCPKG_LIB" | awk '{print $1}' | while read -r dep; do
+              install_name_tool -change "$dep" "@rpath/$(basename "$dep")" "$lib" 2>/dev/null || true
+            done
+          done
+
+          echo "✅ Bundled $(find "$APP_LIB" -name '*.dylib' ! -type l | wc -l | tr -d ' ') dylibs"
+
       - name: Sign app bundle
         run: |
           codesign --force --deep --sign - install-staging/bundle/Ladybird.app
